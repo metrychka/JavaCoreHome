@@ -18,6 +18,7 @@ import org.json.simple.parser.ParseException;
 
 import java.io.FileReader;
 import java.io.IOException;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -39,6 +40,8 @@ public class AccuweatherModel implements WeatherModel {
 
     private static final OkHttpClient okHttpClient = new OkHttpClient();
     public static final ObjectMapper objectMapper = new ObjectMapper();
+
+    private DBRepositotry dbRepositotry = new DBRepositotry();
 
     public void getWeather(String selectedCity, Period period) throws IOException {
         switch (period) {
@@ -81,10 +84,14 @@ public class AccuweatherModel implements WeatherModel {
                     int celsium = (int) (((fahrenheit - 32) * 5) / 9);
 
                     System.out.println("Для города: " + selectedCity + "на дату: " + weathdsc3 + ", ожидается погода: " + weathdsc2 + ", температура в градусах цельсия: " + celsium);
+                    try {
+                        dbRepositotry.saveWeatherToDataBase(selectedCity, weathdsc3, celsium); //- тут после парсинга добавляем данные в БД
+                    } catch (SQLException e) {
+                        throw new RuntimeException(e);
+                    }
                 }
 
-                //TODO: сделать человекочитаемый вывод погоды. Выбрать параметры для вывода на свое усмотрение
-                //Например: Погода в городе Москва - 5 градусов по цельсию Expect showers late Monday night
+
                 break;
             case FIVE_DAYS:
                 HttpUrl httpUrl1 = new HttpUrl.Builder()
@@ -122,13 +129,19 @@ public class AccuweatherModel implements WeatherModel {
                     Double fahrenheit = Double.parseDouble(jo35.get("Value").toString());
                     int celsium = (int) (((fahrenheit - 32) * 5) / 9);
 
-                    System.out.println("Для города: " + selectedCity + "на дату: " + weathdsc35 + ", ожидается погода: " + weathdsc25 + ", температура в градусах цельсия: " + celsium);
+                    System.out.println("Для города: " + selectedCity + " на дату: " + weathdsc35 + ",  температура в градусах цельсия: " + celsium);
                 }
                 //System.out.println(weatherResponse1);
                 break;
 
         }
     }
+
+    @Override
+    public List<Weather> getSavedToDBWeather() {
+        return dbRepositotry.getSavedToDBWeather();
+    }
+
     private String detectCityKey(String selectCity) throws IOException {
         //http://dataservice.accuweather.com/locations/v1/cities/autocomplete
         HttpUrl httpUrl = new HttpUrl.Builder()
